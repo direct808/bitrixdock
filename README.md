@@ -79,3 +79,8 @@ docker-compose up -d nginx php-fpm mysql
     
 ## Fork source
 BitrixDock скопирован и модифицирован из LaraDock (Docker для Laravel) https://github.com/LaraDock/laradock
+
+## Установка в проект
+```bash
+git submodule add https://github.com/vmpartner/bitrixdock.git
+```

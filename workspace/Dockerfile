@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libssl-dev \
     libmcrypt-dev \
+    mysql-client \
+    openssh-server \
     --no-install-recommends \
     && rm -r /var/lib/apt/lists/*
 
@@ -52,7 +54,6 @@ RUN usermod -u 1000 www-data
 
 WORKDIR /var/www/site
 
-RUN apt-get update && apt-get install -y openssh-server
 RUN mkdir /var/run/sshd
 RUN echo 'root:bitrix' | chpasswd
 RUN sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/' /etc/ssh/sshd_config
