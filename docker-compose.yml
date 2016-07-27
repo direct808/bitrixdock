@@ -121,8 +121,8 @@ services:
     workspace:
         build:
             context: ./workspace
-            args:
-                - INSTALL_PRESTISSIMO=false
+        ports:
+            - "50022:22"
         volumes_from:
             - volumes_source
         tty: true

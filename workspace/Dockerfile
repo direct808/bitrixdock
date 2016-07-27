@@ -1,60 +1,42 @@
-FROM phusion/baseimage:latest
+FROM php:7.0-fpm
 
 MAINTAINER Vitams <vmpartner@gmail.com>
 
-RUN DEBIAN_FRONTEND=noninteractive
-RUN locale-gen en_US.UTF-8
-
-ENV LANGUAGE=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-ENV LC_CTYPE=UTF-8
-ENV LANG=en_US.UTF-8
-ENV TERM xterm
-
-# Install "software-properties-common" (for the "add-apt-repository")
 RUN apt-get update && apt-get install -y \
-    software-properties-common
+    software-properties-common \
+    libpq-dev \
+    libmemcached-dev \
+    git \
+    curl \
+    vim \
+    nano \
+    wget \
+    libjpeg-dev \
+    libpng12-dev \
+    libfreetype6-dev \
+    libssl-dev \
+    libmcrypt-dev \
+    --no-install-recommends \
+    && rm -r /var/lib/apt/lists/*
 
-# Add the "PHP 7" ppa
-RUN add-apt-repository -y \
-    ppa:ondrej/php
+# install mcrypt library
+RUN docker-php-ext-install mcrypt
 
-# Install PHP-CLI 7, some PHP extentions and some useful Tools with APT
-RUN apt-get update && apt-get install -y --force-yes \
-        php7.0-cli \
-        php7.0-common \
-        php7.0-curl \
-        php7.0-json \
-        php7.0-xml \
-        php7.0-mbstring \
-        php7.0-mcrypt \
-        php7.0-mysql \
-        php7.0-pgsql \
-        php7.0-sqlite \
-        php7.0-sqlite3 \
-        php7.0-zip \
-        php7.0-memcached \
-        php7.0-gd \
-        php7.0-xdebug \
-        php-dev \
-        libcurl4-openssl-dev \
-        libedit-dev \
-        libssl-dev \
-        libxml2-dev \
-        xz-utils \
-        sqlite3 \
-        libsqlite3-dev \
-        git \
-        curl \
-        vim \
-        nano \
-        wget
+# configure gd library
+RUN docker-php-ext-configure gd \
+    --enable-gd-native-ttf \
+    --with-jpeg-dir=/usr/lib \
+    --with-freetype-dir=/usr/include/freetype2
 
-# Clean up, to free some space
-RUN apt-get clean
+# Install extensions using the helper script provided by the base image
+RUN docker-php-ext-install \
+    opcache \
+    mysqli \
+    gd
 
-# remove load xdebug extension (only load on phpunit command)
-RUN sed -i 's/^/;/g' /etc/php/7.0/cli/conf.d/20-xdebug.ini
+# Install xdebug
+RUN pecl install xdebug \
+    && docker-php-ext-enable xdebug
 
 # Add bin folder of composer to PATH.
 RUN echo "export PATH=${PATH}:/var/www/site/vendor/bin" >> ~/.bashrc
@@ -66,32 +48,20 @@ RUN curl -s http://getcomposer.org/installer | php \
 # Load xdebug Zend extension with phpunit command
 RUN echo "alias phpunit='php -dzend_extension=xdebug.so /var/www/site/vendor/bin/phpunit'" >> ~/.bashrc
 
-# Install mongodb extension
-RUN pecl install mongodb
-RUN echo "extension=mongodb.so" >> /etc/php/7.0/cli/php.ini
-
-# Install nvm (Node Version Manager)
-RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.1/install.sh | bash
-
-ENV NVM_DIR=/root/.nvm
-
-# Install stable node
-RUN . ~/.nvm/nvm.sh \
-    && nvm install stable \
-    && nvm use stable \
-    && nvm alias stable \
-    && npm install -g gulp bower
-
-# Source the bash
-RUN . ~/.bashrc
-
-# Clean up
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN usermod -u 1000 www-data
 
 WORKDIR /var/www/site
 
-# Install optional software
-ARG INSTALL_PRESTISSIMO=false
-RUN if [ "$INSTALL_PRESTISSIMO" = true ] ; then \
-        composer global require "hirak/prestissimo:^0.3"; \
-    fi
+RUN apt-get update && apt-get install -y openssh-server
+RUN mkdir /var/run/sshd
+RUN echo 'root:bitrix' | chpasswd
+RUN sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# SSH login fix. Otherwise user is kicked off after login
+RUN sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd
+
+ENV NOTVISIBLE "in users profile"
+RUN echo "export VISIBLE=now" >> /etc/profile
+
+EXPOSE 22
+CMD ["/usr/sbin/sshd", "-D"]
